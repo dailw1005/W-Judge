@@ -47,6 +47,6 @@ public class JudgeProperties {
 
     @Data
     public static class Workspace {
-        private String root = "/tmp/dailw-judge/workspace";
+        private String root = "/tmp/W-judge/workspace";
     }
 }

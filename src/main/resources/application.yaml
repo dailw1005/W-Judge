@@ -1,6 +1,6 @@
 spring:
   application:
-    name: dailw-judge
+    name: W-judge
   threads:
     virtual:
       enabled: true
@@ -32,4 +32,4 @@ judge:
     time-limit: 10000
     memory-limit: 536870912 # 512MB
   workspace:
-    root: "/tmp/dailw-judge/workspace"
+    root: "/tmp/W-judge/workspace"
