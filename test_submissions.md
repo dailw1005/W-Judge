@@ -1,8 +1,8 @@
-# Test Submissions (Curl Commands)
+﻿# Test Submissions (Curl Commands)
 
 > **Note**: The API has been updated to support multiple test cases. The `input` and `expectedOutput` fields have been replaced by a `testCases` array.
 
-Use these commands to verify the judge service. Ensure the service is running at `http://localhost:8080`.
+Use these commands to verify the judge service. Ensure the service is running at `http://localhost:9119`.
 
 ## 1. C Language (Single Test Case)
 **Source**: `main.c` (stdio)
@@ -18,7 +18,7 @@ int main() {
 
 **Curl Command**:
 ```bash
-curl -X POST http://localhost:8080/judge \
+curl -X POST http://localhost:9119/judge \
   -H "Content-Type: application/json" \
   -d '{
     "id": "test-c-1",
@@ -53,7 +53,7 @@ int main() {
 
 **Curl Command**:
 ```bash
-curl -X POST http://localhost:8080/judge \
+curl -X POST http://localhost:9119/judge \
   -H "Content-Type: application/json" \
   -d '{
     "id": "test-cpp-multi",
@@ -88,7 +88,7 @@ public class Main {
 
 **Curl Command**:
 ```bash
-curl -X POST http://localhost:8080/judge \
+curl -X POST http://localhost:9119/judge \
   -H "Content-Type: application/json" \
   -d '{
     "id": "test-java-1",
@@ -122,7 +122,7 @@ except:
 
 **Curl Command**:
 ```bash
-curl -X POST http://localhost:8080/judge \
+curl -X POST http://localhost:9119/judge \
   -H "Content-Type: application/json" \
   -d '{
     "id": "test-py-multi",
@@ -154,7 +154,7 @@ func main() {
 
 **Curl Command**:
 ```bash
-curl -X POST http://localhost:8080/judge \
+curl -X POST http://localhost:9119/judge \
   -H "Content-Type: application/json" \
   -d '{
     "id": "test-go-1",
@@ -184,7 +184,7 @@ else:
 
 **Curl Command**:
 ```bash
-curl -X POST http://localhost:8080/judge \
+curl -X POST http://localhost:9119/judge \
   -H "Content-Type: application/json" \
   -d '{
     "id": "test-mixed-wa",
@@ -211,7 +211,7 @@ while True:
 
 **Curl Command**:
 ```bash
-curl -X POST http://localhost:8080/judge \
+curl -X POST http://localhost:9119/judge \
   -H "Content-Type: application/json" \
   -d '{
     "id": "test-tle-1",
@@ -233,7 +233,7 @@ curl -X POST http://localhost:8080/judge \
 
 **Curl Command**:
 ```bash
-curl -X POST http://localhost:8080/judge \
+curl -X POST http://localhost:9119/judge \
   -H "Content-Type: application/json" \
   -d '{
   "id": "test-c-100cases",
