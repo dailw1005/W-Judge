@@ -59,10 +59,16 @@ public class PooledDockerSandbox implements Sandbox {
             
             long startTime = System.currentTimeMillis();
             
+            DockerStatsCollector statsCollector = new DockerStatsCollector(dockerClient, containerId);
+            statsCollector.start();
+            
             dockerClient.execStartCmd(execCreateCmdResponse.getId())
                     .exec(callback)
                     .awaitCompletion(request.getTimeLimit(), TimeUnit.MILLISECONDS);
-                    
+            
+            statsCollector.close();
+            long memoryUsed = statsCollector.getMaxMemory();
+            
             long timeUsed = System.currentTimeMillis() - startTime;
             
             InspectExecResponse inspect = dockerClient.inspectExecCmd(execCreateCmdResponse.getId()).exec();
@@ -75,6 +81,7 @@ public class PooledDockerSandbox implements Sandbox {
                 return SandboxResult.builder()
                         .timeLimitExceeded(true)
                         .timeUsed(request.getTimeLimit())
+                        .memoryUsed(memoryUsed)
                         .stdout(stdout.toString())
                         .stderr(stderr.toString())
                         .build();
@@ -87,6 +94,7 @@ public class PooledDockerSandbox implements Sandbox {
                     .stderr(stderr.toString())
                     .exitCode(exitCode)
                     .timeUsed(timeUsed)
+                    .memoryUsed(memoryUsed)
                     .memoryLimitExceeded(false) 
                     .build();
 

@@ -84,12 +84,20 @@ public class DockerSandbox implements Sandbox {
                     .exec(logCallback);
 
             long startTime = System.currentTimeMillis();
+
+            // Start stats collection
+            DockerStatsCollector statsCollector = new DockerStatsCollector(dockerClient, containerId);
+            statsCollector.start();
             
             // Wait for container
             WaitContainerResultCallback waitCallback =
                 dockerClient.waitContainerCmd(containerId).start();
             
             boolean finished = waitCallback.awaitCompletion(request.getTimeLimit(), TimeUnit.MILLISECONDS);
+            
+            statsCollector.close();
+            long memoryUsed = statsCollector.getMaxMemory();
+
             long endTime = System.currentTimeMillis();
             long timeUsed = endTime - startTime;
 
@@ -102,6 +110,7 @@ public class DockerSandbox implements Sandbox {
                 return SandboxResult.builder()
                         .timeLimitExceeded(true)
                         .timeUsed(request.getTimeLimit())
+                        .memoryUsed(memoryUsed)
                         .stdout(stdout.toString())
                         .stderr(stderr.toString())
                         .build();
@@ -116,6 +125,7 @@ public class DockerSandbox implements Sandbox {
                     .stderr(stderr.toString())
                     .exitCode(exitCode)
                     .timeUsed(timeUsed)
+                    .memoryUsed(memoryUsed)
                     .memoryLimitExceeded(oom)
                     .build();
 

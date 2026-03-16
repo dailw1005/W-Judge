@@ -183,7 +183,7 @@ public class JudgeService {
         TestCaseResult.TestCaseResultBuilder resultBuilder = TestCaseResult.builder()
                 .testCaseId(id)
                 .timeUsed(sandboxResult.getTimeUsed())
-                .memoryUsed(0L) // TODO: Implement memory tracking in Sandbox
+                .memoryUsed(sandboxResult.getMemoryUsed())
                 .output(sandboxResult.getStdout())
                 .message(sandboxResult.getStderr());
 
