@@ -1,4 +1,4 @@
-# Universal Code Execution Module (dailw-judge)
+# Universal Code Execution Module (W-judge)
 
 This module is a high-performance, secure, and scalable online judge engine designed to execute code in multiple programming languages. It leverages Docker for sandboxing and Java 21 Virtual Threads for high concurrency.
 
