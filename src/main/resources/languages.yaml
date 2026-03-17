@@ -30,13 +30,13 @@ languages:
     imageName: "python:3.12-slim"
     sourceExtension: ".py"
     srcFileName: "main.py"
-    compileCmd: "python3 -m py_compile main.py" # Syntax check
-    runCmd: "python3 main.py"
+    compileCmd: "python3 -B -m py_compile main.py" # Syntax check
+    runCmd: "python3 -B main.py"
     maxCpuTime: 5000
     maxMemory: 268435456
 
   - name: "go"
-    imageName: "golang:1.22-alpine"
+    imageName: "golang:1.26.1-trixie"
     sourceExtension: ".go"
     srcFileName: "main.go"
     compileCmd: "go build -o main main.go"

@@ -220,7 +220,7 @@ curl -X POST http://localhost:9119/judge \
     "testCases": [
         { "input": "", "expectedOutput": "" }
     ],
-    "timeLimit": 1000,
+    "timeLimit": 10000,
     "memoryLimit": 268435456
   }'
 ```

@@ -33,7 +33,9 @@ public class CompilerService {
             workspaceManager.writeSourceCode(workDir, config.getSrcFileName(), submission.getSourceCode());
 
             String workDirName = workDir.getFileName().toString();
-            String fullCmd = String.format("cd /app/%s && %s", workDirName, config.getCompileCmd());
+            // Execute with chmod to ensure cleanup
+            // Use trap to ensure chmod runs even if compile fails
+            String fullCmd = String.format("cd /app/%s && %s; CODE=$?; chmod -R 777 .; exit $CODE", workDirName, config.getCompileCmd());
 
             SandboxRequest request = SandboxRequest.builder()
                     .imageName(config.getImageName())

@@ -58,45 +58,44 @@ public class PooledDockerSandbox implements Sandbox {
             };
             
             long startTime = System.currentTimeMillis();
-            
-            DockerStatsCollector statsCollector = new DockerStatsCollector(dockerClient, containerId);
-            statsCollector.start();
-            
-            dockerClient.execStartCmd(execCreateCmdResponse.getId())
-                    .exec(callback)
-                    .awaitCompletion(request.getTimeLimit(), TimeUnit.MILLISECONDS);
-            
-            statsCollector.close();
-            long memoryUsed = statsCollector.getMaxMemory();
-            
-            long timeUsed = System.currentTimeMillis() - startTime;
-            
-            InspectExecResponse inspect = dockerClient.inspectExecCmd(execCreateCmdResponse.getId()).exec();
-            
-            if (inspect.isRunning()) {
-                // If timeout, we invalidate the container to be safe as we can't easily kill exec
-                pool.invalidateObject(imageName, containerId);
-                containerId = null; 
-                
+
+            try (DockerStatsCollector statsCollector = new DockerStatsCollector(dockerClient, containerId)) {
+                statsCollector.start();
+
+                dockerClient.execStartCmd(execCreateCmdResponse.getId())
+                        .exec(callback)
+                        .awaitCompletion(request.getTimeLimit(), TimeUnit.MILLISECONDS);
+
+                long memoryUsed = statsCollector.getMaxMemory();
+                long timeUsed = System.currentTimeMillis() - startTime;
+
+                InspectExecResponse inspect = dockerClient.inspectExecCmd(execCreateCmdResponse.getId()).exec();
+
+                if (inspect.isRunning()) {
+                    // If timeout, we invalidate the container to be safe as we can't easily kill exec
+                    pool.invalidateObject(imageName, containerId);
+                    containerId = null;
+
+                    return SandboxResult.builder()
+                            .timeLimitExceeded(true)
+                            .timeUsed(request.getTimeLimit())
+                            .memoryUsed(memoryUsed)
+                            .stdout(stdout.toString())
+                            .stderr(stderr.toString())
+                            .build();
+                }
+
+                int exitCode = inspect.getExitCode();
+
                 return SandboxResult.builder()
-                        .timeLimitExceeded(true)
-                        .timeUsed(request.getTimeLimit())
-                        .memoryUsed(memoryUsed)
                         .stdout(stdout.toString())
                         .stderr(stderr.toString())
+                        .exitCode(exitCode)
+                        .timeUsed(timeUsed)
+                        .memoryUsed(memoryUsed)
+                        .memoryLimitExceeded(false)
                         .build();
             }
-
-            int exitCode = inspect.getExitCode();
-
-            return SandboxResult.builder()
-                    .stdout(stdout.toString())
-                    .stderr(stderr.toString())
-                    .exitCode(exitCode)
-                    .timeUsed(timeUsed)
-                    .memoryUsed(memoryUsed)
-                    .memoryLimitExceeded(false) 
-                    .build();
 
         } catch (Exception e) {
             log.error("Pooled sandbox error", e);
@@ -111,8 +110,40 @@ public class PooledDockerSandbox implements Sandbox {
             throw new SandboxException("Pooled sandbox execution failed", e);
         } finally {
             if (containerId != null) {
-                pool.returnObject(imageName, containerId);
+                try {
+                    cleanupContainer(containerId);
+                    pool.returnObject(imageName, containerId);
+                } catch (Exception e) {
+                    log.error("Cleanup failed, invalidating container {}", containerId, e);
+                    try {
+                        pool.invalidateObject(imageName, containerId);
+                    } catch (Exception ex) {
+                        log.error("Failed to invalidate container", ex);
+                    }
+                }
             }
+        }
+    }
+
+    private void cleanupContainer(String containerId) throws InterruptedException {
+        try {
+            // Clean up /tmp
+            String[] cleanupCmd = new String[]{"sh", "-c", "rm -rf /tmp/*"};
+            ExecCreateCmdResponse exec = dockerClient.execCreateCmd(containerId)
+                    .withCmd(cleanupCmd)
+                    .withAttachStdout(false)
+                    .withAttachStderr(true)
+                    .exec();
+
+            dockerClient.execStartCmd(exec.getId())
+                    .exec(new ResultCallback.Adapter<Frame>() {})
+                    .awaitCompletion(5, TimeUnit.SECONDS);
+
+        } catch (InterruptedException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("Failed to cleanup container {}", containerId, e);
+            throw new RuntimeException("Cleanup failed", e);
         }
     }
     

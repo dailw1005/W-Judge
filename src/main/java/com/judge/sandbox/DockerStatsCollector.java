@@ -32,6 +32,10 @@ public class DockerStatsCollector implements Closeable {
             
             @Override
             public void onError(Throwable throwable) {
+                if (throwable instanceof java.nio.channels.ClosedByInterruptException) {
+                    log.debug("Stats collection stopped due to interruption");
+                    return;
+                }
                 log.warn("Error collecting stats for container {}", containerId, throwable);
             }
         };

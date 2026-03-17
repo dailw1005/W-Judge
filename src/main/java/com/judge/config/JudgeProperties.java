@@ -27,9 +27,6 @@ public class JudgeProperties {
 
     @Data
     public static class Thread {
-        private int corePoolSize = 20;
-        private int maxPoolSize = 40;
-        private int queueCapacity = 200;
         private String threadNamePrefix = "judge-exec-";
     }
 
