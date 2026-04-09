@@ -35,7 +35,7 @@ public class CompilerService {
             String workDirName = workDir.getFileName().toString();
             // Execute with chmod to ensure cleanup
             // Use trap to ensure chmod runs even if compile fails
-            String fullCmd = String.format("cd /app/%s && %s; CODE=$?; chmod -R 777 .; exit $CODE", workDirName, config.getCompileCmd());
+            String fullCmd = String.format("cd /app/%s && %s; CODE=$?; chmod -R 777 .; rm -rf /tmp/*; exit $CODE", workDirName, config.getCompileCmd());
 
             SandboxRequest request = SandboxRequest.builder()
                     .imageName(config.getImageName())

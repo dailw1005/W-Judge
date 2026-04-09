@@ -12,6 +12,7 @@ import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 
@@ -43,16 +44,20 @@ public class PooledDockerSandbox implements Sandbox {
                     .withCmd(command)
                     .exec();
 
-            StringBuilder stdout = new StringBuilder();
-            StringBuilder stderr = new StringBuilder();
+            ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+            ByteArrayOutputStream stderr = new ByteArrayOutputStream();
             
             ResultCallback.Adapter<Frame> callback = new ResultCallback.Adapter<>() {
                 @Override
                 public void onNext(Frame item) {
-                    if (item.getStreamType().name().equals("STDOUT")) {
-                        stdout.append(new String(item.getPayload(), StandardCharsets.UTF_8));
-                    } else if (item.getStreamType().name().equals("STDERR")) {
-                        stderr.append(new String(item.getPayload(), StandardCharsets.UTF_8));
+                    try {
+                        if (item.getStreamType().name().equals("STDOUT")) {
+                            stdout.write(item.getPayload());
+                        } else if (item.getStreamType().name().equals("STDERR")) {
+                            stderr.write(item.getPayload());
+                        }
+                    } catch (Exception e) {
+                        // ignore
                     }
                 }
             };
@@ -80,16 +85,16 @@ public class PooledDockerSandbox implements Sandbox {
                             .timeLimitExceeded(true)
                             .timeUsed(request.getTimeLimit())
                             .memoryUsed(memoryUsed)
-                            .stdout(stdout.toString())
-                            .stderr(stderr.toString())
+                            .stdout(stdout.toString(StandardCharsets.UTF_8))
+                            .stderr(stderr.toString(StandardCharsets.UTF_8))
                             .build();
                 }
 
                 int exitCode = inspect.getExitCode();
 
                 return SandboxResult.builder()
-                        .stdout(stdout.toString())
-                        .stderr(stderr.toString())
+                        .stdout(stdout.toString(StandardCharsets.UTF_8))
+                        .stderr(stderr.toString(StandardCharsets.UTF_8))
                         .exitCode(exitCode)
                         .timeUsed(timeUsed)
                         .memoryUsed(memoryUsed)
@@ -111,10 +116,9 @@ public class PooledDockerSandbox implements Sandbox {
         } finally {
             if (containerId != null) {
                 try {
-                    cleanupContainer(containerId);
                     pool.returnObject(imageName, containerId);
                 } catch (Exception e) {
-                    log.error("Cleanup failed, invalidating container {}", containerId, e);
+                    log.error("Return failed, invalidating container {}", containerId, e);
                     try {
                         pool.invalidateObject(imageName, containerId);
                     } catch (Exception ex) {
@@ -122,28 +126,6 @@ public class PooledDockerSandbox implements Sandbox {
                     }
                 }
             }
-        }
-    }
-
-    private void cleanupContainer(String containerId) throws InterruptedException {
-        try {
-            // Clean up /tmp
-            String[] cleanupCmd = new String[]{"sh", "-c", "rm -rf /tmp/*"};
-            ExecCreateCmdResponse exec = dockerClient.execCreateCmd(containerId)
-                    .withCmd(cleanupCmd)
-                    .withAttachStdout(false)
-                    .withAttachStderr(true)
-                    .exec();
-
-            dockerClient.execStartCmd(exec.getId())
-                    .exec(new ResultCallback.Adapter<Frame>() {})
-                    .awaitCompletion(5, TimeUnit.SECONDS);
-
-        } catch (InterruptedException e) {
-            throw e;
-        } catch (Exception e) {
-            log.warn("Failed to cleanup container {}", containerId, e);
-            throw new RuntimeException("Cleanup failed", e);
         }
     }
     

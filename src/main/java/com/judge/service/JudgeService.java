@@ -165,7 +165,7 @@ public class JudgeService {
         String runCmd = config.getRunCmd();
         String workDirName = workDir.getFileName().toString();
         // Updated command to read from specific input file and ensure permissions for cleanup
-        String fullCmd = String.format("cd /app/%s && %s < %s; CODE=$?; chmod -R 777 .; exit $CODE", workDirName, runCmd, inputFileName);
+        String fullCmd = String.format("cd /app/%s && %s < %s; CODE=$?; chmod -R 777 .; rm -rf /tmp/*; exit $CODE", workDirName, runCmd, inputFileName);
 
         SandboxRequest request = SandboxRequest.builder()
                 .imageName(config.getImageName())
