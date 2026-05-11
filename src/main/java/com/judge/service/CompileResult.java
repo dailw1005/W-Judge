@@ -9,5 +9,4 @@ public class CompileResult {
     private boolean success;
     private String message;
     private String workDir; // Path to directory containing executable
-    private String executableName;
 }

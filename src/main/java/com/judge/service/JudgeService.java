@@ -8,6 +8,7 @@ import com.judge.manager.WorkspaceManager;
 import com.judge.sandbox.Sandbox;
 import com.judge.sandbox.SandboxRequest;
 import com.judge.sandbox.SandboxResult;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
@@ -15,12 +16,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 @Service
@@ -37,6 +41,17 @@ public class JudgeService {
 
     @Qualifier("judgeExecutor")
     private final Executor judgeExecutor;
+
+    private final Semaphore judgeSemaphore;
+
+    @PostConstruct
+    public void registerMetrics() {
+        Gauge.builder("judge.semaphore.available", judgeSemaphore, Semaphore::availablePermits)
+                .register(meterRegistry);
+        Gauge.builder("judge.semaphore.queue", judgeSemaphore,
+                        sem -> sem.hasQueuedThreads() ? sem.getQueueLength() : 0)
+                .register(meterRegistry);
+    }
 
     public JudgeResult judge(Submission submission) {
         Timer.Sample sample = Timer.start(meterRegistry);
@@ -82,18 +97,49 @@ public class JudgeService {
                         .build();
             }
 
-            // 2. Run Test Cases Concurrently
+            // 2. Run Test Cases Concurrently with backpressure
+            boolean earlyTermination = submission.getEarlyTermination() != null
+                    ? submission.getEarlyTermination() : false;
+            AtomicReference<JudgeStatus> terminalStatus = new AtomicReference<>(null);
             List<CompletableFuture<TestCaseResult>> futures = new ArrayList<>();
-            // Need final path for lambda
             Path finalWorkDir = workDir;
-            
+
             for (int i = 0; i < testCases.size(); i++) {
                 int testCaseId = i + 1;
                 TestCase testCase = testCases.get(i);
-                
+
                 CompletableFuture<TestCaseResult> future = CompletableFuture.supplyAsync(() -> {
+                    // Check early termination before doing any work
+                    if (earlyTermination && terminalStatus.get() != null) {
+                        return TestCaseResult.builder()
+                                .testCaseId(testCaseId)
+                                .status(JudgeStatus.PENDING)
+                                .build();
+                    }
+                    // Acquire semaphore permit (blocks if max concurrency reached)
                     try {
-                        return runTestCase(testCaseId, testCase, submission, config, finalWorkDir);
+                        judgeSemaphore.acquire();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return TestCaseResult.builder()
+                                .testCaseId(testCaseId)
+                                .status(JudgeStatus.SYSTEM_ERROR)
+                                .message("Interrupted while waiting for execution permit")
+                                .build();
+                    }
+                    try {
+                        // Check early termination again after acquiring permit
+                        if (earlyTermination && terminalStatus.get() != null) {
+                            return TestCaseResult.builder()
+                                    .testCaseId(testCaseId)
+                                    .status(JudgeStatus.PENDING)
+                                    .build();
+                        }
+                        TestCaseResult result = runTestCase(testCaseId, testCase, submission, config, finalWorkDir);
+                        if (earlyTermination && result.getStatus() != JudgeStatus.ACCEPTED) {
+                            terminalStatus.compareAndExchange(null, result.getStatus());
+                        }
+                        return result;
                     } catch (Exception e) {
                         log.error("Error running test case {}", testCaseId, e);
                         return TestCaseResult.builder()
@@ -101,16 +147,18 @@ public class JudgeService {
                                 .status(JudgeStatus.SYSTEM_ERROR)
                                 .message("System error: " + e.getMessage())
                                 .build();
+                    } finally {
+                        judgeSemaphore.release();
                     }
                 }, judgeExecutor);
                 futures.add(future);
             }
 
-            // Wait for all
+            // Wait for all to finish (remaining ones may be cancelled by early termination)
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
             List<TestCaseResult> testCaseResults = futures.stream()
-                    .map(CompletableFuture::join)
+                    .map(CompletableFuture::resultNow)
                     .collect(Collectors.toList());
 
             // 3. Aggregate Results
@@ -118,10 +166,12 @@ public class JudgeService {
             long maxMemory = 0;
             JudgeStatus finalStatus = JudgeStatus.ACCEPTED;
 
-            // Sort results by ID just in case
             testCaseResults.sort(Comparator.comparingInt(TestCaseResult::getTestCaseId));
 
             for (TestCaseResult result : testCaseResults) {
+                // Skip PENDING results from early termination
+                if (result.getStatus() == JudgeStatus.PENDING) continue;
+
                 maxTime = Math.max(maxTime, result.getTimeUsed() != null ? result.getTimeUsed() : 0);
                 maxMemory = Math.max(maxMemory, result.getMemoryUsed() != null ? result.getMemoryUsed() : 0);
 
@@ -164,8 +214,7 @@ public class JudgeService {
         // Run
         String runCmd = config.getRunCmd();
         String workDirName = workDir.getFileName().toString();
-        // Updated command to read from specific input file and ensure permissions for cleanup
-        String fullCmd = String.format("cd /app/%s && %s < %s; CODE=$?; chmod -R 777 .; exit $CODE", workDirName, runCmd, inputFileName);
+        String fullCmd = String.format("cd /app/%s && %s < %s", workDirName, runCmd, inputFileName);
 
         SandboxRequest request = SandboxRequest.builder()
                 .imageName(config.getImageName())

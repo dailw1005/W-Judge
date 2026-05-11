@@ -56,6 +56,7 @@ public class DockerSandbox implements Sandbox {
                     .withAttachStdout(true)
                     .withAttachStderr(true)
                     .withTty(false)
+                    .withUser("nobody")
                     .exec();
 
             containerId = container.getId();
@@ -83,23 +84,22 @@ public class DockerSandbox implements Sandbox {
                     .withFollowStream(true)
                     .exec(logCallback);
 
-            long startTime = System.currentTimeMillis();
+            long startTime = System.nanoTime();
 
             // Start stats collection
             DockerStatsCollector statsCollector = new DockerStatsCollector(dockerClient, containerId);
             statsCollector.start();
-            
+
             // Wait for container
             WaitContainerResultCallback waitCallback =
                 dockerClient.waitContainerCmd(containerId).start();
-            
+
             boolean finished = waitCallback.awaitCompletion(request.getTimeLimit(), TimeUnit.MILLISECONDS);
-            
+
             statsCollector.close();
             long memoryUsed = statsCollector.getMaxMemory();
 
-            long endTime = System.currentTimeMillis();
-            long timeUsed = endTime - startTime;
+            long timeUsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
 
             if (!finished) {
                 try {

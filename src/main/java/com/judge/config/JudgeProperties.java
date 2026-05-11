@@ -16,6 +16,7 @@ public class JudgeProperties {
     private Sandbox sandbox = new Sandbox();
     private Compiler compiler = new Compiler();
     private Workspace workspace = new Workspace();
+    private Concurrency concurrency = new Concurrency();
 
     @Data
     public static class Pool {
@@ -23,6 +24,8 @@ public class JudgeProperties {
         private int maxIdlePerKey = 5;
         private int maxTotal = 50;
         private Duration maxWait = Duration.ofSeconds(10);
+        private Duration evictionInterval = Duration.ofSeconds(30);
+        private Duration minEvictableIdleTime = Duration.ofSeconds(60);
     }
 
     @Data
@@ -45,5 +48,10 @@ public class JudgeProperties {
     @Data
     public static class Workspace {
         private String root = "/tmp/W-judge/workspace";
+    }
+
+    @Data
+    public static class Concurrency {
+        private int maxRunningTestCases = 100;
     }
 }
