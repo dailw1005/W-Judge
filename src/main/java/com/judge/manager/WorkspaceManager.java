@@ -30,10 +30,17 @@ public class WorkspaceManager {
             Path root = Paths.get(judgeProperties.getWorkspace().getRoot());
             if (!Files.exists(root)) {
                 Files.createDirectories(root);
+                root.toFile().setWritable(true, false);
+                root.toFile().setReadable(true, false);
+                root.toFile().setExecutable(true, false);
             }
             String uuid = UUID.randomUUID().toString();
             Path workDir = root.resolve("compile-" + submissionId + "-" + uuid);
             Files.createDirectories(workDir);
+            // Make workspace world-writable so the container's nobody user can write to it
+            workDir.toFile().setWritable(true, false);
+            workDir.toFile().setReadable(true, false);
+            workDir.toFile().setExecutable(true, false);
             return workDir;
         } catch (IOException e) {
             throw new JudgeException("Failed to create workspace for submission " + submissionId, e);
