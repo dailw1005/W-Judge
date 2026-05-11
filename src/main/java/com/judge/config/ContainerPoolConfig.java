@@ -22,6 +22,7 @@ public class ContainerPoolConfig {
         config.setBlockWhenExhausted(true);
         config.setMaxWait(judgeProperties.getPool().getMaxWait());
         config.setTestOnBorrow(true);
+        config.setJmxEnabled(false);
         return new GenericKeyedObjectPool<>(factory, config);
     }
 }
