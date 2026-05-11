@@ -27,6 +27,7 @@ public class ContainerPoolConfig {
         config.setTestWhileIdle(true);
         config.setTimeBetweenEvictionRuns(judgeProperties.getPool().getEvictionInterval());
         config.setMinEvictableIdleDuration(judgeProperties.getPool().getMinEvictableIdleTime());
+        config.setJmxEnabled(false);
         return new GenericKeyedObjectPool<>(factory, config);
     }
 }
