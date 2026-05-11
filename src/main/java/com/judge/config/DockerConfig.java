@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.net.URI;
 import java.time.Duration;
 
 @Configuration
@@ -19,6 +18,9 @@ public class DockerConfig {
 
     @Value("${judge.docker.host:}")
     private String dockerHost;
+
+    @Value("${judge.docker.max-connections:100}")
+    private int maxConnections;
 
     @Bean
     public DockerClient dockerClient() {
@@ -32,16 +34,16 @@ public class DockerConfig {
             }
         }
 
-        log.info("Initializing Docker Client with host: {}", host);
+        log.info("Initializing Docker Client with host: {}, maxConnections: {}", host, maxConnections);
 
         DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
                 .withDockerHost(host)
                 .build();
-        
+
         DockerHttpClient httpClient = new ZerodepDockerHttpClient.Builder()
                 .dockerHost(config.getDockerHost())
                 .sslConfig(config.getSSLConfig())
-                .maxConnections(100)
+                .maxConnections(maxConnections)
                 .connectionTimeout(Duration.ofSeconds(30))
                 .responseTimeout(Duration.ofSeconds(45))
                 .build();

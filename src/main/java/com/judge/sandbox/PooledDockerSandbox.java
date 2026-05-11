@@ -57,7 +57,7 @@ public class PooledDockerSandbox implements Sandbox {
                 }
             };
             
-            long startTime = System.currentTimeMillis();
+            long startTime = System.nanoTime();
 
             try (DockerStatsCollector statsCollector = new DockerStatsCollector(dockerClient, containerId)) {
                 statsCollector.start();
@@ -67,7 +67,7 @@ public class PooledDockerSandbox implements Sandbox {
                         .awaitCompletion(request.getTimeLimit(), TimeUnit.MILLISECONDS);
 
                 long memoryUsed = statsCollector.getMaxMemory();
-                long timeUsed = System.currentTimeMillis() - startTime;
+                long timeUsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
 
                 InspectExecResponse inspect = dockerClient.inspectExecCmd(execCreateCmdResponse.getId()).exec();
 
@@ -148,6 +148,18 @@ public class PooledDockerSandbox implements Sandbox {
     }
     
     private void ensureImageExists(String imageName) {
-         // Rely on DockerContainerFactory to fail if image missing, or pre-pull logic elsewhere
+        try {
+            dockerClient.inspectImageCmd(imageName).exec();
+        } catch (com.github.dockerjava.api.exception.NotFoundException e) {
+            log.info("Image {} not found locally, pulling...", imageName);
+            try {
+                dockerClient.pullImageCmd(imageName)
+                        .exec(new com.github.dockerjava.api.command.PullImageResultCallback())
+                        .awaitCompletion();
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Interrupted while pulling image: " + imageName, ie);
+            }
+        }
     }
 }

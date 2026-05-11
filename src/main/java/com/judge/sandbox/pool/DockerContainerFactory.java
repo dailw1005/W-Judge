@@ -36,6 +36,7 @@ public class DockerContainerFactory extends BaseKeyedPooledObjectFactory<String,
         CreateContainerResponse response = dockerClient.createContainerCmd(imageName)
                 .withCmd("tail", "-f", "/dev/null") // Keep running
                 .withHostConfig(hostConfig)
+                .withUser("nobody") // Run as non-root for security
                 .exec();
 
         String containerId = response.getId();

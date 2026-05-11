@@ -18,4 +18,5 @@ public class Submission {
     private List<TestCase> testCases;
     private Long timeLimit; // milliseconds
     private Long memoryLimit; // bytes
+    private Boolean earlyTermination; // true = stop on first failure, false/null = run all test cases
 }

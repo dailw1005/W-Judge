@@ -21,9 +21,6 @@ judge:
     max-total: 50
     max-wait: 10s
   thread:
-    core-pool-size: 20
-    max-pool-size: 40
-    queue-capacity: 200
     thread-name-prefix: "judge-exec-"
   sandbox:
     memory-limit: 1073741824 # 1GB
@@ -33,3 +30,7 @@ judge:
     memory-limit: 536870912 # 512MB
   workspace:
     root: "/tmp/W-judge/workspace"
+  docker:
+    max-connections: 100
+  concurrency:
+    max-running-test-cases: 100

@@ -7,6 +7,8 @@ import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Duration;
+
 @Configuration
 @RequiredArgsConstructor
 public class ContainerPoolConfig {
@@ -21,7 +23,10 @@ public class ContainerPoolConfig {
         config.setMaxTotal(judgeProperties.getPool().getMaxTotal());
         config.setBlockWhenExhausted(true);
         config.setMaxWait(judgeProperties.getPool().getMaxWait());
-        config.setTestOnBorrow(true);
+        config.setTestOnBorrow(false);
+        config.setTestWhileIdle(true);
+        config.setTimeBetweenEvictionRuns(judgeProperties.getPool().getEvictionInterval());
+        config.setMinEvictableIdleDuration(judgeProperties.getPool().getMinEvictableIdleTime());
         return new GenericKeyedObjectPool<>(factory, config);
     }
 }
