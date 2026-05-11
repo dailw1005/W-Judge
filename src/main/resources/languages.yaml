@@ -1,6 +1,6 @@
 languages:
   - name: "c"
-    imageName: "gcc:13.2"
+    imageName: "gcc:13.2.0"
     sourceExtension: ".c"
     srcFileName: "main.c"
     compileCmd: "gcc main.c -o main -O2 -Wall -lm -static -std=c11"
@@ -9,7 +9,7 @@ languages:
     maxMemory: 268435456 # 256MB
 
   - name: "cpp"
-    imageName: "gcc:13.2"
+    imageName: "gcc:13.2.0"
     sourceExtension: ".cpp"
     srcFileName: "main.cpp"
     compileCmd: "g++ main.cpp -o main -O2 -Wall -lm -static -std=c++20"
