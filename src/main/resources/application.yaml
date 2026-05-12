@@ -13,6 +13,9 @@ management:
     web:
       exposure:
         include: health,prometheus
+  metrics:
+    tags:
+      application: W-judge
 
 judge:
   pool:
@@ -26,7 +29,7 @@ judge:
     memory-limit: 1073741824 # 1GB
     nano-cpus: 1000000000 # 1 CPU
   compiler:
-    time-limit: 10000
+    time-limit: 120000 # 120s (Go cold build needs more time)
     memory-limit: 536870912 # 512MB
   workspace:
     root: "/tmp/W-judge/workspace"

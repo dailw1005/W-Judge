@@ -39,7 +39,7 @@ languages:
     imageName: "golang:1.26.1-trixie"
     sourceExtension: ".go"
     srcFileName: "main.go"
-    compileCmd: "go build -o main main.go"
+    compileCmd: "GOCACHE=/app/.go-cache CGO_ENABLED=0 go build -o main main.go"
     runCmd: "./main"
     maxCpuTime: 3000
     maxMemory: 268435456

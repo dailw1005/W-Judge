@@ -47,6 +47,16 @@ public class CompilerService {
 
             SandboxResult result = sandbox.run(request);
 
+            log.debug("Compile cmd: {}, exitCode: {}, timeLimitExceeded: {}", fullCmd, result.getExitCode(), result.isTimeLimitExceeded());
+
+            if (result.isTimeLimitExceeded()) {
+                return CompileResult.builder()
+                        .success(false)
+                        .message("Compilation timed out\n" + result.getStderr() + "\n" + result.getStdout())
+                        .workDir(workDir.toAbsolutePath().toString())
+                        .build();
+            }
+
             if (result.getExitCode() != 0) {
                 return CompileResult.builder()
                         .success(false)
