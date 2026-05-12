@@ -59,43 +59,44 @@ public class PooledDockerSandbox implements Sandbox {
             
             long startTime = System.nanoTime();
 
+            dockerClient.execStartCmd(execCreateCmdResponse.getId())
+                    .exec(callback)
+                    .awaitCompletion(request.getTimeLimit(), TimeUnit.MILLISECONDS);
+
+            long timeUsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
+
+            // Read memory from container cgroup (works for all program durations)
+            long memoryUsed = 0;
             try (DockerStatsCollector statsCollector = new DockerStatsCollector(dockerClient, containerId)) {
-                statsCollector.start();
+                memoryUsed = statsCollector.readCgroupMemory();
+            }
 
-                dockerClient.execStartCmd(execCreateCmdResponse.getId())
-                        .exec(callback)
-                        .awaitCompletion(request.getTimeLimit(), TimeUnit.MILLISECONDS);
+            InspectExecResponse inspect = dockerClient.inspectExecCmd(execCreateCmdResponse.getId()).exec();
 
-                long memoryUsed = statsCollector.getMaxMemory();
-                long timeUsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-
-                InspectExecResponse inspect = dockerClient.inspectExecCmd(execCreateCmdResponse.getId()).exec();
-
-                if (inspect.isRunning()) {
-                    // If timeout, we invalidate the container to be safe as we can't easily kill exec
-                    pool.invalidateObject(imageName, containerId);
-                    containerId = null;
-
-                    return SandboxResult.builder()
-                            .timeLimitExceeded(true)
-                            .timeUsed(request.getTimeLimit())
-                            .memoryUsed(memoryUsed)
-                            .stdout(stdout.toString())
-                            .stderr(stderr.toString())
-                            .build();
-                }
-
-                int exitCode = inspect.getExitCode();
+            if (inspect.isRunning()) {
+                // If timeout, we invalidate the container to be safe as we can't easily kill exec
+                pool.invalidateObject(imageName, containerId);
+                containerId = null;
 
                 return SandboxResult.builder()
+                        .timeLimitExceeded(true)
+                        .timeUsed(request.getTimeLimit())
+                        .memoryUsed(memoryUsed)
                         .stdout(stdout.toString())
                         .stderr(stderr.toString())
-                        .exitCode(exitCode)
-                        .timeUsed(timeUsed)
-                        .memoryUsed(memoryUsed)
-                        .memoryLimitExceeded(false)
                         .build();
             }
+
+            int exitCode = inspect.getExitCode();
+
+            return SandboxResult.builder()
+                    .stdout(stdout.toString())
+                    .stderr(stderr.toString())
+                    .exitCode(exitCode)
+                    .timeUsed(timeUsed)
+                    .memoryUsed(memoryUsed)
+                    .memoryLimitExceeded(false)
+                    .build();
 
         } catch (Exception e) {
             log.error("Pooled sandbox error", e);

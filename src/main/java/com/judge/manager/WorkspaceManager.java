@@ -7,8 +7,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.FileSystemUtils;
 
+import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -44,6 +46,34 @@ public class WorkspaceManager {
             return workDir;
         } catch (IOException e) {
             throw new JudgeException("Failed to create workspace for submission " + submissionId, e);
+        }
+    }
+
+    /**
+     * Clean up leftover workspaces from previous runs on startup.
+     * Preserves the .go-cache directory for faster Go compilation.
+     */
+    @PostConstruct
+    public void cleanupOnStartup() {
+        Path root = Paths.get(judgeProperties.getWorkspace().getRoot());
+        if (!Files.exists(root)) {
+            return;
+        }
+        log.info("Cleaning up leftover workspaces in {}", root);
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(root, dir -> {
+            String name = dir.getFileName().toString();
+            return name.startsWith("compile-") && Files.isDirectory(dir);
+        })) {
+            for (Path dir : stream) {
+                try {
+                    FileSystemUtils.deleteRecursively(dir);
+                    log.debug("Cleaned up leftover workspace: {}", dir.getFileName());
+                } catch (IOException e) {
+                    log.warn("Failed to cleanup leftover workspace {}", dir, e);
+                }
+            }
+        } catch (IOException e) {
+            log.warn("Failed to list workspace directory {}", root, e);
         }
     }
 

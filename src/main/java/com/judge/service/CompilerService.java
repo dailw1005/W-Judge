@@ -33,7 +33,12 @@ public class CompilerService {
             workspaceManager.writeSourceCode(workDir, config.getSrcFileName(), submission.getSourceCode());
 
             String workDirName = workDir.getFileName().toString();
-            String fullCmd = String.format("cd /app/%s && %s", workDirName, config.getCompileCmd());
+            // Fix permissions after compile so the host (dailw user) can clean up later.
+            // Files created by the container's nobody user (e.g. __pycache__) are otherwise
+            // undeletable by the Java process on the host.
+            String fullCmd = String.format(
+                    "cd /app/%s && (%s); rc=$?; chmod -R 777 . 2>/dev/null; exit $rc",
+                    workDirName, config.getCompileCmd());
 
             SandboxRequest request = SandboxRequest.builder()
                     .imageName(config.getImageName())
